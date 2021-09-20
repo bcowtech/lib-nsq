@@ -10,8 +10,9 @@ import (
 
 func TestProducer(t *testing.T) {
 	p, err := nsq.NewProducer(&nsq.ProducerOption{
-		Address: strings.Split(os.Getenv("NSQD_SERVERS"), ","),
-		Config:  nsq.NewConfig(),
+		Address:           strings.Split(os.Getenv("NSQD_SERVERS"), ","),
+		Config:            nsq.NewConfig(),
+		ReplicationFactor: 1,
 	})
 	if err != nil {
 		if p != nil {
