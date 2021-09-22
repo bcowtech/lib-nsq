@@ -11,9 +11,10 @@ import (
 type Producer struct {
 	pool *ProducerPool
 
-	wg       sync.WaitGroup
-	mutex    sync.Mutex
-	disposed bool
+	wg          sync.WaitGroup
+	mutex       sync.Mutex
+	disposed    bool
+	initialized bool
 }
 
 func NewProducer(opt *ProducerOption) (*Producer, error) {
@@ -39,6 +40,9 @@ func (p *Producer) Write(topic string, body []byte) error {
 	if p.disposed {
 		return fmt.Errorf("the Producer has been disposed")
 	}
+	if !p.initialized {
+		logger.Panic("the Producer haven't be initialized yet")
+	}
 
 	p.wg.Add(1)
 	defer p.wg.Done()
@@ -49,6 +53,9 @@ func (p *Producer) Write(topic string, body []byte) error {
 func (p *Producer) DeferredWrite(topic string, delay time.Duration, body []byte) error {
 	if p.disposed {
 		return fmt.Errorf("the Producer has been disposed")
+	}
+	if !p.initialized {
+		logger.Panic("the Producer haven't be initialized yet")
 	}
 
 	p.wg.Add(1)
@@ -72,6 +79,10 @@ func (p *Producer) Close() {
 }
 
 func (p *Producer) init(opt *ProducerOption) error {
+	if p.initialized {
+		return nil
+	}
+
 	if opt == nil {
 		opt = &ProducerOption{}
 	}
@@ -105,6 +116,8 @@ func (p *Producer) init(opt *ProducerOption) error {
 		pool.init()
 
 		p.pool = pool
+
+		p.initialized = true
 	}
 
 	return nil

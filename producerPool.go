@@ -1,6 +1,7 @@
 package nsq
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -12,10 +13,19 @@ type ProducerPool struct {
 
 	replicationFactor int32
 
-	current int32
+	current     int32
+	disposed    bool
+	initialized bool
 }
 
 func (p *ProducerPool) publish(topic string, body []byte) error {
+	if p.disposed {
+		return fmt.Errorf("the ProducerPool has been disposed")
+	}
+	if !p.initialized {
+		logger.Panic("the ProducerPool haven't be initialized yet")
+	}
+
 	var (
 		size     = len(p.handles)
 		attempts = size
@@ -64,6 +74,13 @@ func (p *ProducerPool) publish(topic string, body []byte) error {
 }
 
 func (p *ProducerPool) deferredPublish(topic string, delay time.Duration, body []byte) error {
+	if p.disposed {
+		return fmt.Errorf("the ProducerPool has been disposed")
+	}
+	if !p.initialized {
+		logger.Panic("the ProducerPool haven't be initialized yet")
+	}
+
 	var (
 		size     = len(p.handles)
 		attempts = size
@@ -112,6 +129,12 @@ func (p *ProducerPool) deferredPublish(topic string, delay time.Duration, body [
 }
 
 func (p *ProducerPool) dispose() {
+	if p.disposed {
+		return
+	}
+
+	p.disposed = true
+
 	// stop all nsq producers
 	for _, handle := range p.handles {
 		handle.Stop()
@@ -119,7 +142,18 @@ func (p *ProducerPool) dispose() {
 }
 
 func (p *ProducerPool) init() {
+	if p.initialized {
+		return
+	}
+
 	p.current = -1
+
+	var size = int32(len(p.handles))
+	if p.replicationFactor > size {
+		p.replicationFactor = size
+	}
+
+	p.initialized = true
 }
 
 func (p *ProducerPool) next() int32 {
